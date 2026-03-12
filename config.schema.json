@@ -1,0 +1,42 @@
+{
+  "pluginAlias": "WindFreeRoomAC",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "Samsung WindFree Room AC"
+      },
+      "clientId": {
+        "title": "SmartThings Client ID",
+        "type": "string",
+        "required": true
+      },
+      "clientSecret": {
+        "title": "SmartThings Client Secret",
+        "type": "string",
+        "required": true
+      },
+      "refreshToken": {
+        "title": "SmartThings Refresh Token",
+        "type": "string",
+        "required": true
+      },
+      "deviceId": {
+        "title": "SmartThings Device ID",
+        "type": "string",
+        "description": "Leave blank to auto-discover. If you have multiple AC units, enter the device ID of the one to control."
+      },
+      "pollInterval": {
+        "title": "Poll Interval (seconds)",
+        "type": "integer",
+        "default": 30,
+        "minimum": 10,
+        "maximum": 300
+      }
+    }
+  }
+}
