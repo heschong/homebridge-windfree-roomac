@@ -54,6 +54,22 @@ describe('SmartThingsClient', () => {
 
       expect(mockedAxios.post).toHaveBeenCalledTimes(1);
     });
+
+    it('shares a single refresh between concurrent callers', async () => {
+      mockedAxios.post = jest.fn().mockResolvedValue({
+        data: {
+          access_token: 'shared-token',
+          refresh_token: 'new-refresh-token',
+          expires_in: 86399,
+        },
+      });
+
+      const client = new SmartThingsClient(FAKE_CONFIG, jest.fn() as any);
+      const tokens = await Promise.all([client.getAccessToken(), client.getAccessToken()]);
+
+      expect(tokens).toEqual(['shared-token', 'shared-token']);
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('getDeviceStatus', () => {

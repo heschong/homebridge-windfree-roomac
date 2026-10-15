@@ -5,6 +5,7 @@ import { Logger } from 'homebridge';
 import { PLUGIN_NAME, ST_TOKEN_URL, ST_API_BASE, TOKEN_REFRESH_BUFFER_MS } from './settings';
 
 const TOKEN_FILE_BASE_NAME = PLUGIN_NAME.replace(/^@[^/]+\//, '');
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export interface SmartThingsConfig {
   clientId: string;
@@ -35,6 +36,8 @@ export class SmartThingsClient {
   private tokenExpiresAt = 0;
   private currentRefreshToken: string;
   private resolvedDeviceId: string | undefined;
+  // In-flight refresh, shared so concurrent callers don't reuse a rotated refresh token
+  private refreshInFlight: Promise<void> | null = null;
 
   private get deviceId(): string {
     const id = this.resolvedDeviceId ?? this.config.deviceId;
@@ -80,7 +83,7 @@ export class SmartThingsClient {
       await fs.promises.writeFile(
         this.tokenFilePath,
         JSON.stringify({ refreshToken: this.currentRefreshToken }),
-        'utf8',
+        { encoding: 'utf8', mode: 0o600 },
       );
     } catch (err) {
       (this.log as Partial<Logger>).warn?.('Failed to persist refresh token:', err);
@@ -91,7 +94,12 @@ export class SmartThingsClient {
     if (this.accessToken && Date.now() < this.tokenExpiresAt - TOKEN_REFRESH_BUFFER_MS) {
       return this.accessToken;
     }
-    await this.refreshToken();
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refreshToken().finally(() => {
+        this.refreshInFlight = null;
+      });
+    }
+    await this.refreshInFlight;
     return this.accessToken!;
   }
 
@@ -119,10 +127,11 @@ export class SmartThingsClient {
       const response = await axios.post(ST_TOKEN_URL, params.toString(), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         auth: { username: this.config.clientId, password: this.config.clientSecret },
+        timeout: REQUEST_TIMEOUT_MS,
       });
 
       this.accessToken = response.data.access_token;
-      this.currentRefreshToken = response.data.refresh_token;
+      this.currentRefreshToken = response.data.refresh_token ?? this.currentRefreshToken;
       this.tokenExpiresAt = Date.now() + response.data.expires_in * 1000;
       (this.log as Partial<Logger>).debug?.('SmartThings token refreshed, expires in', response.data.expires_in, 's');
       await this.persistToken();
@@ -137,6 +146,7 @@ export class SmartThingsClient {
       const response = await axios.get(`${ST_API_BASE}/devices`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { capability: 'airConditionerMode' },
+        timeout: REQUEST_TIMEOUT_MS,
       });
 
       const items = response.data.items as Array<{ deviceId: string; label?: string; name?: string }>;
@@ -161,6 +171,7 @@ export class SmartThingsClient {
     try {
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
+        timeout: REQUEST_TIMEOUT_MS,
       });
 
       const main = response.data.components.main;
@@ -190,6 +201,7 @@ export class SmartThingsClient {
         }],
       }, {
         headers: { Authorization: `Bearer ${token}` },
+        timeout: REQUEST_TIMEOUT_MS,
       });
     } catch (err) {
       throw this.apiError(err, `Command ${capability}/${command} failed`);
