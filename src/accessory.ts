@@ -244,7 +244,8 @@ export class WindFreeRoomACAccessory {
       if (on) {
         await this.client.setPower(true);
         await this.client.setAirConditionerMode(mode);
-      } else {
+      } else if (this.cachedStatus?.airConditionerMode === mode) {
+        // Only leave this mode if it's the active one; otherwise turning the switch off is a no-op
         await this.client.setAirConditionerMode('auto');
       }
       await this.poll();
