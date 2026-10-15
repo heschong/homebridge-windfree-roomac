@@ -1,7 +1,7 @@
 {
   "name": "@heschong/homebridge-windfree-roomac",
   "displayName": "Homebridge Samsung WindFree Room AC",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Christopher Heschong <chris@wiw.org>",
   "description": "Homebridge plugin for Samsung WindFree Room Air Conditioner via SmartThings",
   "main": "dist/index.js",
